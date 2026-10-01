@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Live Schematics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--panel:#0f0c15;--line:#2b2340;--text:#f6f1ff;--mute:#a99fc4;--pink:#ff9ad5;--blue:#4fb3ff;--grad:linear-gradient(90deg,var(--blue),var(--pink));--err:#ff8aa0;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px);scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:500 16px/1.55 Nunito,system-ui,sans-serif;overflow-x:hidden}
+body::before,body::after{content:"";position:fixed;width:520px;height:520px;border-radius:50%;filter:blur(110px);opacity:.22;pointer-events:none;z-index:-1}
+body::before{background:var(--pink);top:-180px;right:-140px}
+body::after{background:var(--blue);bottom:-200px;left:-160px}
+h1,h2,h3,.logo{font-family:Lilita One,Nunito,sans-serif;margin:0;font-weight:400;letter-spacing:.01em}
+h1,h2,.logo span.t{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;display:inline-block}
+.card h3{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+nav{display:flex;align-items:center;justify-content:space-between;padding:18px 0;gap:10px;flex-wrap:wrap}
+.logo{font-size:24px;display:flex;align-items:center;gap:10px}
+.mark{width:28px;height:28px;border-radius:50%;background:var(--grad);position:relative;flex:none}
+.mark::after{content:"";position:absolute;inset:9px;background:#000;border-radius:50%}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button{font:inherit;cursor:pointer}
+.btn{background:var(--grad);color:#14081c;border:0;padding:11px 20px;font-weight:800;border-radius:999px;transition:transform .15s}
+.btn.ghost{background:transparent;color:var(--text);border:2px solid var(--line)}
+.btn.ghost:hover:not(:disabled){border-color:var(--pink)}
+.btn:hover:not(:disabled){transform:translateY(-2px) rotate(-1deg)}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+.hero{padding:56px 0 34px;max-width:720px}
+.hero h1{font-size:clamp(40px,8vw,72px);line-height:1.02}
+.hero p{color:var(--mute);font-size:19px;margin:18px 0 26px;max-width:520px}
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}
+.stats div{border:2px solid var(--line);border-radius:999px;padding:6px 16px;color:var(--mute);font-size:14px}
+.stats b{color:var(--text);font-weight:800}
+h2{font-size:34px;margin:36px 0 6px}
+.sub{color:var(--mute);margin:0 0 22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:20px;padding-bottom:60px}
+.card{background:linear-gradient(var(--panel),var(--panel)) padding-box,var(--grad) border-box;border:2px solid transparent;border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:14px}
+.card.soon{background:var(--panel);border:2px dashed var(--line);opacity:.7}
+.card header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h3{font-size:26px}
+.card.soon h3{background:none;-webkit-text-fill-color:var(--mute);color:var(--mute)}
+.tag{font-size:12px;font-weight:800;padding:4px 11px;background:var(--grad);color:#14081c;border-radius:99px;white-space:nowrap}
+.soon .tag{background:var(--line);color:var(--mute)}
+.plot{height:96px;border-radius:16px;display:flex;align-items:flex-end;gap:5px;padding:8px;background:#07050b;border:2px solid var(--line)}
+.plot i{flex:1;border-radius:6px 6px 2px 2px;background:linear-gradient(var(--pink),var(--blue));height:var(--h)}
+.soon .plot i{background:var(--line);height:14%}
+dl{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:0;font-size:14px}
+dt{color:var(--mute)}dd{margin:0;font-weight:800;text-align:right}
+.note{font-size:12px;color:var(--mute)}
+dialog{background:var(--panel);color:var(--text);border:2px solid var(--pink);border-radius:26px;padding:26px;width:min(410px,92vw);box-shadow:0 0 60px rgba(255,154,213,.25)}
+dialog::backdrop{background:rgba(0,0,0,.8)}
+dialog h3{font-size:28px;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;display:inline-block}
+.tabs{display:flex;gap:6px;background:#000;border-radius:999px;padding:5px;margin-bottom:14px}
+.tabs button{flex:1;background:none;border:0;color:var(--mute);padding:9px;font-weight:800;border-radius:999px}
+.tabs button[aria-selected=true]{background:var(--grad);color:#14081c}
+label{display:block;font-size:14px;font-weight:700;margin:12px 0 5px;color:var(--mute)}
+input{width:100%;background:#000;color:var(--text);border:2px solid var(--line);border-radius:14px;padding:11px 14px;font:inherit}
+input:focus{border-color:var(--blue);outline:0}
+.err{color:var(--err);font-size:14px;font-weight:700;min-height:20px;margin:10px 0 0}
+dialog .btn{width:100%;margin-top:6px}
+.x{float:right;background:none;border:0;color:var(--mute);font-size:26px;line-height:1}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel);border:2px solid var(--blue);padding:12px 20px;border-radius:999px;display:none;max-width:90vw;z-index:9;font-weight:700}
+.est{background:#000;border:2px solid var(--line);padding:12px 14px;border-radius:16px;margin-top:14px;font-size:14px}
+footer{border-top:2px solid var(--line);padding:22px 0 40px;color:var(--mute);font-size:13px}
+@media (prefers-reduced-motion:no-preference){.mark{animation:sp 8s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}}
+@media (prefers-reduced-motion:reduce){.btn{transition:none}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <div class="logo"><span class="mark"></span><span class="t">Live Schematics</span></div>
+  <div class="row" id="authbar"></div>
+</nav>
+
+<section class="hero">
+  <h1>Own a farm. Get paid. 🍩</h1>
+  <p>Put money into DonutSMP farms and take a cut of the profits. No building, no AFK-ing, no lag.</p>
+  <div class="row"><a class="btn" href="#farms" style="text-decoration:none">See the farms</a><button class="btn ghost" id="heroJoin">Join now</button></div>
+  <div class="stats"><div><b>1</b> farm live</div><div><b>DonutSMP</b> only</div><div>Payments <b>soon</b></div></div>
+</section>
+
+<section id="farms">
+  <h2>Pick a farm</h2>
+  <p class="sub">Choose a farm, pick an amount, and watch it work. Numbers below are placeholders for now.</p>
+  <div class="grid" id="grid"></div>
+</section>
+
+<footer>Live Schematics is an independent project and is not affiliated with DonutSMP or Mojang. Investing in farms carries risk and returns are not guaranteed.</footer>
+</div>
+
+<dialog id="authDlg">
+  <button class="x" aria-label="Close" onclick="authDlg.close()">&times;</button>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tLogin" aria-selected="true">Log in</button>
+    <button role="tab" id="tSignup" aria-selected="false">Create account</button>
+  </div>
+  <div id="authForm">
+    <label for="u">Minecraft username</label><input id="u" autocomplete="username" maxlength="16">
+    <div id="emailRow" hidden><label for="e">Email</label><input id="e" type="email" autocomplete="email"></div>
+    <label for="p">Password</label><input id="p" type="password" autocomplete="current-password">
+    <div id="pRow" hidden><label for="p2">Confirm password</label><input id="p2" type="password" autocomplete="new-password"></div>
+    <p class="err" id="err" role="alert"></p>
+    <button class="btn" id="authGo">Log in</button>
+  </div>
+</dialog>
+
+<dialog id="invDlg">
+  <button class="x" aria-label="Close" onclick="invDlg.close()">&times;</button>
+  <h3 id="invTitle">Invest</h3>
+  <p class="note" style="margin-top:6px">Enter an amount in DonutSMP in-game money.</p>
+  <label for="amt">Amount</label><input id="amt" type="number" min="1" step="1" value="100000">
+  <div class="est" id="est"></div>
+  <p class="err" id="invErr"></p>
+  <button class="btn" id="invGo">Invest</button>
+</dialog>
+<div id="toast" role="status"></div>
+
+<script>
+const FARMS=[
+ {id:"kelp",name:"Kelp Farm",status:"live",desc:"Automated kelp farm that produces steady output around the clock.",apy:"Sample: 8% / week",min:"100K",risk:"Low",cap:"Sample: 40% filled",rate:0.08,h:[30,45,40,60,55,70,65,80,75,85,70,90]},
+ {id:"cobble",name:"Cobblestone Farm",status:"soon",desc:"High-volume cobblestone generator."},
+ {id:"iron",name:"Iron Farm",status:"soon",desc:"Golem-based iron production."},
+ {id:"sugar",name:"Sugar Cane Farm",status:"soon",desc:"Compact sugar cane harvester."}
+];
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let mode="login";
+
+function toast(m){const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",3200)}
+async function hash(s){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+const session=()=>store.get("ls_session",null);
+
+function renderBar(){
+  const s=session(),bar=$("authbar");
+  if(s){bar.innerHTML=`<span class="note" style="font-size:14px">Signed in as <b style="color:var(--text)">${s.replace(/[<>&]/g,"")}</b></span><button class="btn ghost" id="out">Log out</button>`;
+    $("out").onclick=()=>{store.set("ls_session",null);renderBar();toast("Logged out.")};$("heroJoin").hidden=true}
+  else{bar.innerHTML=`<button class="btn ghost" id="li">Log in</button><button class="btn" id="su">Create account</button>`;
+    $("li").onclick=()=>openAuth("login");$("su").onclick=()=>openAuth("signup");$("heroJoin").hidden=false}
+}
+function renderGrid(){
+  $("grid").innerHTML=FARMS.map(f=>f.status==="live"?`
+  <article class="card"><header><h3>${f.name}</h3><span class="tag">Open</span></header>
+  <div class="plot" aria-hidden="true">${f.h.map(h=>`<i style="--h:${h}%"></i>`).join("")}</div>
+  <p style="margin:0;color:var(--mute);font-size:14px">${f.desc}</p>
+  <dl><dt>Est. return</dt><dd>${f.apy}</dd><dt>Minimum</dt><dd>${f.min}</dd><dt>Risk</dt><dd>${f.risk}</dd><dt>Capacity</dt><dd>${f.cap}</dd></dl>
+  <button class="btn" data-farm="${f.id}">Invest in ${f.name.split(" ")[0]} 🌿</button></article>`:`
+  <article class="card soon"><header><h3>${f.name}</h3><span class="tag">Coming soon</span></header>
+  <div class="plot" aria-hidden="true">${"<i></i>".repeat(12)}</div>
+  <p style="margin:0;color:var(--mute);font-size:14px">${f.desc}</p>
+  <button class="btn ghost" disabled>Dropping soon</button></article>`).join("");
+  document.querySelectorAll("[data-farm]").forEach(b=>b.onclick=()=>openInvest(b.dataset.farm));
+}
+
+function openAuth(m){setMode(m);$("err").textContent="";authDlg.showModal()}
+function setMode(m){mode=m;const su=m==="signup";
+  $("tLogin").setAttribute("aria-selected",!su);$("tSignup").setAttribute("aria-selected",su);
+  $("emailRow").hidden=!su;$("pRow").hidden=!su;$("authGo").textContent=su?"Create account":"Log in";
+  $("p").autocomplete=su?"new-password":"current-password";$("err").textContent=""}
+$("tLogin").onclick=()=>setMode("login");$("tSignup").onclick=()=>setMode("signup");
+$("heroJoin").onclick=()=>openAuth("signup");
+["u","e","p","p2"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter")$("authGo").click()}));
+
+$("authGo").onclick=async()=>{
+  const u=$("u").value.trim(),p=$("p").value,users=store.get("ls_users",{}),key=u.toLowerCase(),er=$("err");
+  if(!/^[A-Za-z0-9_]{3,16}$/.test(u))return er.textContent="Enter your Minecraft username (3-16 letters, numbers or underscores).";
+  if(mode==="signup"){
+    const e=$("e").value.trim();
+    if(!/^\S+@\S+\.\S+$/.test(e))return er.textContent="Enter a valid email address.";
+    if(p.length<8)return er.textContent="Use a password with at least 8 characters.";
+    if(p!==$("p2").value)return er.textContent="Passwords don't match.";
+    if(users[key])return er.textContent="That username already has an account. Log in instead.";
+    users[key]={name:u,email:e,pw:await hash(p)};store.set("ls_users",users);
+    store.set("ls_session",u);authDlg.close();renderBar();toast("Account created. Welcome, "+u+".");
+  }else{
+    if(!users[key]||users[key].pw!==await hash(p))return er.textContent="Username or password is incorrect.";
+    store.set("ls_session",users[key].name);authDlg.close();renderBar();toast("Logged in as "+users[key].name+".");
+  }
+  ["u","e","p","p2"].forEach(id=>$(id).value="");
+};
+
+let cur=null;
+function openInvest(id){
+  if(!session()){toast("Log in or make an account first.");return openAuth("login")}
+  cur=FARMS.find(f=>f.id===id);$("invTitle").textContent="Invest in "+cur.name;$("invErr").textContent="";upd();invDlg.showModal()
+}
+function upd(){const a=Number($("amt").value)||0,w=a*cur.rate;
+  $("est").innerHTML=`Est. weekly profit: <b>${Math.round(w).toLocaleString()}</b><br><span class="note">Sample rate for preview only. Not a promise of returns.</span>`}
+$("amt").oninput=upd;
+$("invGo").onclick=()=>{
+  const a=Number($("amt").value);
+  if(!a||a<100000)return $("invErr").textContent="The minimum investment is 100,000.";
+  invDlg.close();toast("Payments aren't live yet, so nothing was invested.")
+};
+[authDlg,invDlg].forEach(d=>d.addEventListener("click",e=>{if(e.target===d)d.close()}));
+renderBar();renderGrid();
+</script>
+</body>
+</html>
