@@ -57,6 +57,9 @@ dl{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:0;font-size:1
 dt{color:var(--mute)}dd{margin:0;font-weight:800;text-align:right}
 .chip{background:var(--panel);border:2px solid var(--blue);border-radius:999px;padding:5px 14px;font-weight:800}
 .big{font:400 38px "Lilita One",sans-serif;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;width:fit-content}
+.cmd{display:flex;gap:8px;align-items:center;background:#000;border:2px solid var(--blue);border-radius:16px;padding:10px 12px;margin:10px 0}
+.cmd code{flex:1;font:700 15px/1.3 ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
+.cmd .btn{width:auto;margin:0;padding:8px 16px}
 .note{font-size:12px;color:var(--mute)}
 dialog{background:var(--panel);color:var(--text);border:2px solid var(--pink);border-radius:26px;padding:26px;width:min(410px,92vw);box-shadow:0 0 60px rgba(255,154,213,.25)}
 dialog::backdrop{background:rgba(0,0,0,.8)}
@@ -90,6 +93,12 @@ footer{border-top:2px solid var(--line);padding:22px 0 40px;color:var(--mute);fo
   <p>Deposit into our DonutSMP farms and earn a share of the profits. No building, no AFK-ing, no lag.</p>
   <div class="row"><a class="btn" href="#farms" style="text-decoration:none">See the farms</a><button class="btn ghost" id="heroJoin">Join now</button></div>
   <div class="stats"><div><b>1</b> farm live</div><div><b>DonutSMP</b> only</div><div>Payments <b>soon</b></div></div>
+</section>
+
+<section id="admin" hidden>
+  <h2>Admin: pending deposits</h2>
+  <p class="sub">When you see the /pay in game, press Confirm to add the money to that player.</p>
+  <div class="grid" id="adminGrid" style="padding-bottom:10px"></div>
 </section>
 
 <section id="mine" hidden>
@@ -134,6 +143,22 @@ footer{border-top:2px solid var(--line);padding:22px 0 40px;color:var(--mute);fo
   <p class="err" id="invErr"></p>
   <button class="btn" id="invGo">Invest</button>
 </dialog>
+<dialog id="depDlg">
+  <button class="x" aria-label="Close" onclick="depDlg.close()">&times;</button>
+  <h3>Add money</h3>
+  <div id="depStep1">
+    <label for="depAmt">How much do you want to deposit?</label>
+    <input id="depAmt" type="number" min="10000" step="1" value="100000">
+    <p class="err" id="depErr" role="alert"></p>
+    <button class="btn" id="depGo">Get payment command</button>
+  </div>
+  <div id="depStep2" hidden>
+    <p style="margin:14px 0 0">In DonutSMP, run this as <b id="depUser"></b>:</p>
+    <div class="cmd"><code id="depCmd"></code><button class="btn" id="depCopy">Copy</button></div>
+    <p class="note">Pay from the exact Minecraft name above and send the exact amount. This request expires in 30 minutes, and this page updates once your payment is received.</p>
+    <div class="est" id="depStatus">Waiting for your payment...</div>
+  </div>
+</dialog>
 <div id="toast" role="status"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -151,6 +176,8 @@ const FARMS=[
 ];
 const $=id=>document.getElementById(id);
 let mode="login",user=null,balance=null,pos={};
+const BOT_NAME="AcerzXV";let isAdmin=false,depReq=null,depTimer=null,adminTimer=null;
+const fresh=r=>Date.now()-new Date(r.created_at).getTime()<30*60*1000;
 const fmt=n=>"$"+Number(n).toLocaleString();
 
 function toast(m){const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",3500)}
@@ -164,17 +191,19 @@ function renderBar(){
     const s=document.createElement("span");s.className="note";s.style.fontSize="14px";s.textContent="Signed in as ";
     const b=document.createElement("b");b.style.color="var(--text)";b.textContent=nameOf(user);s.append(b);bar.append(s);
     const chip=document.createElement("span");chip.className="chip";chip.textContent=balance===null?"...":fmt(balance);bar.append(chip);
+    mk("Add money","",openDeposit);
     mk("Get test cash","ghost",claim);
     mk("Log out","ghost",async()=>{await sb.auth.signOut();toast("Logged out.")});
   }else{mk("Log in","ghost",()=>openAuth("login"));mk("Create account","",()=>openAuth("signup"))}
   $("heroJoin").hidden=!!user;
 }
 async function loadBalance(){
-  if(!user){balance=null;pos={};renderMine();renderGrid();return renderBar()}
-  const [w,p]=await Promise.all([sb.from("wallets").select("balance").maybeSingle(),sb.from("positions").select("farm_id,amount")]);
+  if(!user){balance=null;pos={};isAdmin=false;renderAdmin();renderMine();renderGrid();return renderBar()}
+  const [w,p,pf]=await Promise.all([sb.from("wallets").select("balance").maybeSingle(),sb.from("positions").select("farm_id,amount"),sb.from("profiles").select("is_admin").maybeSingle()]);
   balance=w.data?Number(w.data.balance):0;
   pos={};(p.data||[]).forEach(x=>pos[x.farm_id]=Number(x.amount));
-  renderBar();renderMine();renderGrid();
+  isAdmin=!!(pf.data&&pf.data.is_admin);
+  renderBar();renderMine();renderGrid();renderAdmin();
 }
 function renderMine(){
   $("mine").hidden=!user;if(!user)return;
@@ -186,6 +215,48 @@ function renderMine(){
   <div class="row"><button class="btn" data-dep="${f.id}">Deposit more</button><button class="btn ghost" data-wd="${f.id}">Withdraw</button></div></article>`).join(""):`<p class="sub">You haven't invested yet. Pick a farm below to make your first deposit.</p>`;
   document.querySelectorAll("[data-dep]").forEach(b=>b.onclick=()=>openInvest(b.dataset.dep,"deposit"));
   document.querySelectorAll("[data-wd]").forEach(b=>b.onclick=()=>openInvest(b.dataset.wd,"withdraw"));
+}
+async function openDeposit(){
+  $("depErr").textContent="";
+  const r=await sb.from("deposit_requests").select("*").eq("user_id",user.id).eq("status","pending").order("created_at",{ascending:false}).limit(1);
+  depReq=r.data&&r.data[0]&&fresh(r.data[0])?r.data[0]:null;
+  showDep();depDlg.showModal();
+}
+function showDep(){
+  const has=!!depReq;$("depStep1").hidden=has;$("depStep2").hidden=!has;clearInterval(depTimer);
+  if(!has)return;
+  $("depUser").textContent=depReq.mc_username;
+  $("depCmd").textContent="/pay "+BOT_NAME+" "+depReq.amount;
+  depTimer=setInterval(pollDep,5000);
+}
+async function pollDep(){
+  if(!depReq||!depDlg.open){clearInterval(depTimer);return}
+  const r=await sb.from("deposit_requests").select("status").eq("id",depReq.id).maybeSingle();
+  const st=r.data&&r.data.status;
+  if(st==="completed"){clearInterval(depTimer);depReq=null;await loadBalance();depDlg.close();toast("Deposit received. Your balance is "+fmt(balance)+".")}
+  else if((st&&st!=="pending")||!fresh(depReq)){clearInterval(depTimer);depReq=null;showDep();$("depErr").textContent="That request expired. Start a new one."}
+}
+$("depGo").onclick=async()=>{
+  const a=Math.floor(Number($("depAmt").value));
+  if(!a||a<10000)return $("depErr").textContent="The minimum deposit is 10,000.";
+  $("depGo").disabled=true;
+  const r=await sb.rpc("request_deposit",{p_amount:a});
+  $("depGo").disabled=false;
+  if(r.error)return $("depErr").textContent=r.error.message;
+  depReq=r.data;showDep();
+};
+$("depCopy").onclick=async()=>{try{await navigator.clipboard.writeText($("depCmd").textContent);toast("Command copied.")}catch(e){toast("Copy it by hand from the box.")}};
+async function renderAdmin(){
+  clearInterval(adminTimer);$("admin").hidden=!isAdmin;if(!isAdmin)return;
+  const r=await sb.from("deposit_requests").select("*").eq("status","pending").order("created_at");
+  const rows=r.data||[];
+  $("adminGrid").innerHTML=rows.length?rows.map(d=>`<article class="card"><header><h3>${d.mc_username}</h3><span class="tag">${Math.max(0,Math.round((Date.now()-new Date(d.created_at))/60000))} min ago</span></header>
+  <div class="big">${fmt(d.amount)}</div><button class="btn" data-conf="${d.id}">Confirm received</button></article>`).join(""):`<p class="sub">No pending deposits right now.</p>`;
+  document.querySelectorAll("[data-conf]").forEach(b=>b.onclick=async()=>{
+    b.disabled=true;const x=await sb.rpc("admin_confirm_deposit",{p_id:b.dataset.conf});
+    toast(x.error?x.error.message:"Deposit confirmed.");renderAdmin();
+  });
+  adminTimer=setInterval(renderAdmin,10000);
 }
 async function claim(){
   const r=await sb.rpc("claim_test_credits");
@@ -285,7 +356,8 @@ $("invGo").onclick=async()=>{
   renderBar();renderMine();renderGrid();invDlg.close();
   toast((w?"Withdrew ":"Deposited ")+fmt(a)+(w?" from ":" into ")+cur.name+".");
 };
-[authDlg,invDlg].forEach(d=>d.addEventListener("click",e=>{if(e.target===d)d.close()}));
+[authDlg,invDlg,depDlg].forEach(d=>d.addEventListener("click",e=>{if(e.target===d)d.close()}));
+depDlg.addEventListener("close",()=>clearInterval(depTimer));
 renderGrid();renderBar();renderMine();
 if(sb){
   sb.auth.getSession().then(r=>{user=r.data.session?r.data.session.user:null;renderBar();loadBalance()});
