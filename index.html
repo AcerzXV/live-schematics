@@ -56,6 +56,7 @@ h2{font-size:34px;margin:36px 0 6px}
 dl{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:0;font-size:14px}
 dt{color:var(--mute)}dd{margin:0;font-weight:800;text-align:right}
 .chip{background:var(--panel);border:2px solid var(--blue);border-radius:999px;padding:5px 14px;font-weight:800}
+.big{font:400 38px "Lilita One",sans-serif;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;width:fit-content}
 .note{font-size:12px;color:var(--mute)}
 dialog{background:var(--panel);color:var(--text);border:2px solid var(--pink);border-radius:26px;padding:26px;width:min(410px,92vw);box-shadow:0 0 60px rgba(255,154,213,.25)}
 dialog::backdrop{background:rgba(0,0,0,.8)}
@@ -91,6 +92,12 @@ footer{border-top:2px solid var(--line);padding:22px 0 40px;color:var(--mute);fo
   <div class="stats"><div><b>1</b> farm live</div><div><b>DonutSMP</b> only</div><div>Payments <b>soon</b></div></div>
 </section>
 
+<section id="mine" hidden>
+  <h2>My investments</h2>
+  <p class="sub">What you have in each farm right now.</p>
+  <div class="grid" id="mineGrid" style="padding-bottom:10px"></div>
+</section>
+
 <section id="farms">
   <h2>Pick a farm</h2>
   <p class="sub">Choose a farm, pick an amount, and watch it work. Numbers below are placeholders for now.</p>
@@ -122,7 +129,7 @@ footer{border-top:2px solid var(--line);padding:22px 0 40px;color:var(--mute);fo
   <button class="x" aria-label="Close" onclick="invDlg.close()">&times;</button>
   <h3 id="invTitle">Invest</h3>
   <p class="note" style="margin-top:6px">Enter an amount in DonutSMP in-game money.</p>
-  <label for="amt">Amount</label><input id="amt" type="number" min="1" step="1" value="100000">
+  <div style="display:flex;justify-content:space-between;align-items:end"><label for="amt">Amount</label><button class="lnk" id="maxBtn" type="button">Use max</button></div><input id="amt" type="number" min="1" step="1" value="100000">
   <div class="est" id="est"></div>
   <p class="err" id="invErr"></p>
   <button class="btn" id="invGo">Invest</button>
@@ -143,7 +150,7 @@ const FARMS=[
  {id:"sugar",name:"Sugar Cane Farm",status:"soon",desc:"Compact sugar cane harvester."}
 ];
 const $=id=>document.getElementById(id);
-let mode="login",user=null,balance=null;
+let mode="login",user=null,balance=null,pos={};
 const fmt=n=>"$"+Number(n).toLocaleString();
 
 function toast(m){const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",3500)}
@@ -163,9 +170,22 @@ function renderBar(){
   $("heroJoin").hidden=!!user;
 }
 async function loadBalance(){
-  if(!user){balance=null;return renderBar()}
-  const r=await sb.from("wallets").select("balance").maybeSingle();
-  balance=r.data?Number(r.data.balance):0;renderBar();
+  if(!user){balance=null;pos={};renderMine();renderGrid();return renderBar()}
+  const [w,p]=await Promise.all([sb.from("wallets").select("balance").maybeSingle(),sb.from("positions").select("farm_id,amount")]);
+  balance=w.data?Number(w.data.balance):0;
+  pos={};(p.data||[]).forEach(x=>pos[x.farm_id]=Number(x.amount));
+  renderBar();renderMine();renderGrid();
+}
+function renderMine(){
+  $("mine").hidden=!user;if(!user)return;
+  const owned=FARMS.filter(f=>pos[f.id]>0);
+  $("mineGrid").innerHTML=owned.length?owned.map(f=>`
+  <article class="card"><header><h3>${f.name}</h3><span class="tag">Invested</span></header>
+  <div class="big">${fmt(pos[f.id])}</div>
+  <p class="note" style="margin:0">Est. weekly profit: ${Math.round(pos[f.id]*f.rate).toLocaleString()} (sample rate)</p>
+  <div class="row"><button class="btn" data-dep="${f.id}">Deposit more</button><button class="btn ghost" data-wd="${f.id}">Withdraw</button></div></article>`).join(""):`<p class="sub">You haven't invested yet. Pick a farm below to make your first deposit.</p>`;
+  document.querySelectorAll("[data-dep]").forEach(b=>b.onclick=()=>openInvest(b.dataset.dep,"deposit"));
+  document.querySelectorAll("[data-wd]").forEach(b=>b.onclick=()=>openInvest(b.dataset.wd,"withdraw"));
 }
 async function claim(){
   const r=await sb.rpc("claim_test_credits");
@@ -177,8 +197,8 @@ function renderGrid(){
   <article class="card"><header><h3>${f.name}</h3><span class="tag">Open</span></header>
   <div class="plot" aria-hidden="true">${f.h.map(h=>`<i style="--h:${h}%"></i>`).join("")}</div>
   <p style="margin:0;color:var(--mute);font-size:14px">${f.desc}</p>
-  <dl><dt>Est. return</dt><dd>${f.apy}</dd><dt>Minimum</dt><dd>${f.min}</dd><dt>Risk</dt><dd>${f.risk}</dd><dt>Capacity</dt><dd>${f.cap}</dd></dl>
-  <button class="btn" data-farm="${f.id}">Invest in ${f.name.split(" ")[0]} 🌿</button></article>`:`
+  <dl><dt>Est. return</dt><dd>${f.apy}</dd><dt>Minimum</dt><dd>${f.min}</dd><dt>Risk</dt><dd>${f.risk}</dd><dt>Capacity</dt><dd>${f.cap}</dd>${user?`<dt>You invested</dt><dd>${fmt(pos[f.id]||0)}</dd>`:""}</dl>
+  <button class="btn" data-farm="${f.id}">Deposit into ${f.name.split(" ")[0]} 🌿</button></article>`:`
   <article class="card soon"><header><h3>${f.name}</h3><span class="tag">Coming soon</span></header>
   <div class="plot" aria-hidden="true">${"<i></i>".repeat(12)}</div>
   <p style="margin:0;color:var(--mute);font-size:14px">${f.desc}</p>
@@ -237,26 +257,36 @@ $("authGo").onclick=async()=>{
   finally{btn.disabled=false}
 };
 
-let cur=null;
-function openInvest(id){
+let cur=null,kind="deposit";
+function openInvest(id,k){
   if(!user){toast("Log in or make an account first.");return openAuth("login")}
-  cur=FARMS.find(f=>f.id===id);$("invTitle").textContent="Invest in "+cur.name;$("invErr").textContent="";upd();invDlg.showModal()
+  cur=FARMS.find(f=>f.id===id);kind=k||"deposit";
+  $("invTitle").textContent=(kind==="withdraw"?"Withdraw from ":"Deposit into ")+cur.name;
+  $("invGo").textContent=kind==="withdraw"?"Withdraw":"Deposit";
+  $("amt").value=kind==="withdraw"?(pos[cur.id]||0):100000;
+  $("invErr").textContent="";upd();invDlg.showModal()
 }
-function upd(){const a=Number($("amt").value)||0,w=a*cur.rate;
-  $("est").innerHTML=`Est. weekly profit: <b>${Math.round(w).toLocaleString()}</b><br>Your balance: <b>${balance===null?"...":fmt(balance)}</b><br><span class="note">Sample rate for preview only. Not a promise of returns.</span>`}
+function upd(){const a=Number($("amt").value)||0;
+  $("est").innerHTML=kind==="withdraw"
+   ?`Invested here: <b>${fmt(pos[cur.id]||0)}</b><br>Goes back to your balance: <b>${fmt(a)}</b>`
+   :`Est. weekly profit: <b>${Math.round(a*cur.rate).toLocaleString()}</b><br>Your balance: <b>${balance===null?"...":fmt(balance)}</b><br><span class="note">Sample rate for preview only. Not a promise of returns.</span>`}
 $("amt").oninput=upd;
+$("maxBtn").onclick=()=>{$("amt").value=kind==="withdraw"?(pos[cur.id]||0):(balance||0);upd()};
 $("invGo").onclick=async()=>{
-  const a=Math.floor(Number($("amt").value)),btn=$("invGo");
-  if(!a||a<100000)return $("invErr").textContent="The minimum investment is 100,000.";
-  if(balance!==null&&a>balance)return $("invErr").textContent="You don't have enough cash. Your balance is "+fmt(balance)+".";
+  const a=Math.floor(Number($("amt").value)),btn=$("invGo"),w=kind==="withdraw",have=pos[cur.id]||0;
+  if(!a||a<(w?1:100000))return $("invErr").textContent=w?"Enter an amount to withdraw.":"The minimum deposit is 100,000.";
+  if(w&&a>have)return $("invErr").textContent="You only have "+fmt(have)+" invested here.";
+  if(!w&&balance!==null&&a>balance)return $("invErr").textContent="You don't have enough cash. Your balance is "+fmt(balance)+".";
   btn.disabled=true;
-  const r=await sb.rpc("invest",{p_farm:cur.id,p_amount:a});
+  const r=await sb.rpc(w?"withdraw":"invest",{p_farm:cur.id,p_amount:a});
   btn.disabled=false;
   if(r.error)return $("invErr").textContent=r.error.message;
-  balance=Number(r.data);renderBar();invDlg.close();toast("Invested "+fmt(a)+" in "+cur.name+".");
+  balance=Number(r.data);pos[cur.id]=have+(w?-a:a);
+  renderBar();renderMine();renderGrid();invDlg.close();
+  toast((w?"Withdrew ":"Deposited ")+fmt(a)+(w?" from ":" into ")+cur.name+".");
 };
 [authDlg,invDlg].forEach(d=>d.addEventListener("click",e=>{if(e.target===d)d.close()}));
-renderGrid();renderBar();
+renderGrid();renderBar();renderMine();
 if(sb){
   sb.auth.getSession().then(r=>{user=r.data.session?r.data.session.user:null;renderBar();loadBalance()});
   sb.auth.onAuthStateChange((ev,s)=>{user=s?s.user:null;renderBar();setTimeout(loadBalance,0);if(ev==="PASSWORD_RECOVERY")openAuth("reset")});
