@@ -55,6 +55,7 @@ h2{font-size:34px;margin:36px 0 6px}
 .soon .plot i{background:var(--line);height:14%}
 dl{display:grid;grid-template-columns:1fr auto;gap:6px 12px;margin:0;font-size:14px}
 dt{color:var(--mute)}dd{margin:0;font-weight:800;text-align:right}
+.chip{background:var(--panel);border:2px solid var(--blue);border-radius:999px;padding:5px 14px;font-weight:800}
 .note{font-size:12px;color:var(--mute)}
 dialog{background:var(--panel);color:var(--text);border:2px solid var(--pink);border-radius:26px;padding:26px;width:min(410px,92vw);box-shadow:0 0 60px rgba(255,154,213,.25)}
 dialog::backdrop{background:rgba(0,0,0,.8)}
@@ -142,7 +143,8 @@ const FARMS=[
  {id:"sugar",name:"Sugar Cane Farm",status:"soon",desc:"Compact sugar cane harvester."}
 ];
 const $=id=>document.getElementById(id);
-let mode="login",user=null;
+let mode="login",user=null,balance=null;
+const fmt=n=>"$"+Number(n).toLocaleString();
 
 function toast(m){const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",3500)}
 function msg(t,ok){const e=$("err");e.textContent=t;e.style.color=ok?"var(--blue)":"var(--err)"}
@@ -154,9 +156,21 @@ function renderBar(){
   if(user){
     const s=document.createElement("span");s.className="note";s.style.fontSize="14px";s.textContent="Signed in as ";
     const b=document.createElement("b");b.style.color="var(--text)";b.textContent=nameOf(user);s.append(b);bar.append(s);
+    const chip=document.createElement("span");chip.className="chip";chip.textContent=balance===null?"...":fmt(balance);bar.append(chip);
+    mk("Get test cash","ghost",claim);
     mk("Log out","ghost",async()=>{await sb.auth.signOut();toast("Logged out.")});
   }else{mk("Log in","ghost",()=>openAuth("login"));mk("Create account","",()=>openAuth("signup"))}
   $("heroJoin").hidden=!!user;
+}
+async function loadBalance(){
+  if(!user){balance=null;return renderBar()}
+  const r=await sb.from("wallets").select("balance").maybeSingle();
+  balance=r.data?Number(r.data.balance):0;renderBar();
+}
+async function claim(){
+  const r=await sb.rpc("claim_test_credits");
+  if(r.error)return toast(r.error.message);
+  balance=Number(r.data);renderBar();toast("Added $1,000,000 of test cash.");
 }
 function renderGrid(){
   $("grid").innerHTML=FARMS.map(f=>f.status==="live"?`
@@ -229,18 +243,23 @@ function openInvest(id){
   cur=FARMS.find(f=>f.id===id);$("invTitle").textContent="Invest in "+cur.name;$("invErr").textContent="";upd();invDlg.showModal()
 }
 function upd(){const a=Number($("amt").value)||0,w=a*cur.rate;
-  $("est").innerHTML=`Est. weekly profit: <b>${Math.round(w).toLocaleString()}</b><br><span class="note">Sample rate for preview only. Not a promise of returns.</span>`}
+  $("est").innerHTML=`Est. weekly profit: <b>${Math.round(w).toLocaleString()}</b><br>Your balance: <b>${balance===null?"...":fmt(balance)}</b><br><span class="note">Sample rate for preview only. Not a promise of returns.</span>`}
 $("amt").oninput=upd;
-$("invGo").onclick=()=>{
-  const a=Number($("amt").value);
+$("invGo").onclick=async()=>{
+  const a=Math.floor(Number($("amt").value)),btn=$("invGo");
   if(!a||a<100000)return $("invErr").textContent="The minimum investment is 100,000.";
-  invDlg.close();toast("Payments aren't live yet, so nothing was invested.")
+  if(balance!==null&&a>balance)return $("invErr").textContent="You don't have enough cash. Your balance is "+fmt(balance)+".";
+  btn.disabled=true;
+  const r=await sb.rpc("invest",{p_farm:cur.id,p_amount:a});
+  btn.disabled=false;
+  if(r.error)return $("invErr").textContent=r.error.message;
+  balance=Number(r.data);renderBar();invDlg.close();toast("Invested "+fmt(a)+" in "+cur.name+".");
 };
 [authDlg,invDlg].forEach(d=>d.addEventListener("click",e=>{if(e.target===d)d.close()}));
 renderGrid();renderBar();
 if(sb){
-  sb.auth.getSession().then(r=>{user=r.data.session?r.data.session.user:null;renderBar()});
-  sb.auth.onAuthStateChange((ev,s)=>{user=s?s.user:null;renderBar();if(ev==="PASSWORD_RECOVERY")openAuth("reset")});
+  sb.auth.getSession().then(r=>{user=r.data.session?r.data.session.user:null;renderBar();loadBalance()});
+  sb.auth.onAuthStateChange((ev,s)=>{user=s?s.user:null;renderBar();setTimeout(loadBalance,0);if(ev==="PASSWORD_RECOVERY")openAuth("reset")});
 }
 </script>
 </body>
