@@ -124,7 +124,7 @@ footer{border-top:2px solid var(--line);padding:22px 0 40px;color:var(--mute);fo
   </div>
   <h3 id="authTitle" hidden></h3>
   <div id="authForm">
-    <div id="uRow"><label for="u">Minecraft username</label><input id="u" autocomplete="username" maxlength="16"></div>
+    <div id="uRow"><label for="u">Minecraft username</label><input id="u" autocomplete="username" maxlength="17" placeholder="Bedrock? Include the dot, like .Steve"></div>
     <div id="eRow"><label for="e">Email</label><input id="e" type="email" autocomplete="email"></div>
     <div id="pRow"><label for="p">Password</label><input id="p" type="password" autocomplete="current-password"></div>
     <div id="p2Row"><label for="p2">Confirm password</label><input id="p2" type="password" autocomplete="new-password"></div>
@@ -155,7 +155,7 @@ footer{border-top:2px solid var(--line);padding:22px 0 40px;color:var(--mute);fo
   <div id="depStep2" hidden>
     <p style="margin:14px 0 0">In DonutSMP, run this as <b id="depUser"></b>:</p>
     <div class="cmd"><code id="depCmd"></code><button class="btn" id="depCopy">Copy</button></div>
-    <p class="note">Pay from the exact Minecraft name above and send the exact amount. This request expires in 30 minutes, and this page updates once your payment is received.</p>
+    <p class="note">Pay from the exact Minecraft name above and send the exact amount within 30 minutes. Deposits are checked by hand right now, so your balance may take a little while to update.</p>
     <div class="est" id="depStatus">Waiting for your payment...</div>
   </div>
 </dialog>
@@ -297,7 +297,7 @@ $("authGo").onclick=async()=>{
   btn.disabled=true;msg("");
   try{
     if(mode==="signup"){
-      if(!/^[A-Za-z0-9_]{3,16}$/.test(u))return msg("Enter your Minecraft username (3-16 letters, numbers or underscores).");
+      if(!/^\.?[A-Za-z0-9_]{3,16}$/.test(u))return msg("Enter your Minecraft username (3-16 letters, numbers or underscores). Bedrock players: start with a dot, like .Steve");
       if(!emailOk)return msg("Enter a valid email address.");
       if(needPw())return msg(needPw());
       const chk=await sb.rpc("username_available",{name:u});
